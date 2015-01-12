@@ -18,10 +18,19 @@ This script has the ability to delete all the essential networking components fo
 ```
 
 ## Restarting all the neutron services
-This script can restart all of the neutron services within an RPC environment, including the services running on a remote compute host and/or containers. It requires the path to the rpc inventory file, usually located at /etc/rpc_deploy/rpc_inventory.json. 
-This options also requires the script be ran from the environments deployment host.
+This script can restart all of the neutron services within an RPC environment, including the services running on a remote compute host and/or containers. It requires the path to the rpc inventory file, usually located at /etc/rpc_deploy/rpc_inventory.json.
+This options also requires the script be ran from the environment's deployment host.
 
 ###Usage
 ```bash
 ./manageNeutron.py --source_file \<path\> debug -i \<path_to_inventory_file\> --restart_services
 ```
+
+## More to come!
+Eventually, this script will help debug by doing the following:
+* Show recent errors in all the neutron logs
+* Test vxlan endpoint connectivity between compute and networking hosts.
+* Troubleshoot metadata issues. Sometimes instances fail to reach their metadata through the neutron-metadata-proxy. This wil test the connections neutron makes and verfiy if it is working.
+* Verify bridge connections. E.g br-vxlan, br-vlan, br-mgmt. Also possibly neutron linuxbridge bridges.
+* Verify neutron router connectivity to the outside.
+* Verify neutron router connectivity to tenant network DHCP namespace.
