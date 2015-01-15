@@ -15,6 +15,7 @@ neutronClient = None
 PHYSICAL_NETWORK_LABEL = "vlan"
 PHYSICAL_NETWORK_NAME = "external-net"
 PHYSICAL_SUBNET_NAME = "external-subnet"
+EXTERNAL_SUBNET_CIDR = "192.168.100.0/24"
 
 TENANT_NETWORK_NAME = "testnet1"
 TENANT_SUBNET_NAME = "testsubnet1"
@@ -26,6 +27,7 @@ FLOATING_IP_START = "192.168.100.71"
 FLOATING_IP_END = "192.168.100.90"
 
 #Load the file containing openstack credentials
+#NOTE: instead of sourcing it, should I just read the values?
 def load_source(source_file):
     # Running subprocess..
     command = ['bash', '-c', 'source %s && env' % source_file]
@@ -35,42 +37,16 @@ def load_source(source_file):
         os.environ[key] = value.rstrip()
     process.communicate()
 
+
 #Function that implements the create subcommand
 def create(args):
     global neutronClient
+
     # The --all flag has been used, create default
-    # networks according to global constants above
-    # and how the SAT6 lab is set up.
+    # networks according to global constants above.
     if args.all:
-        # The JSON object representation of the external network
-        network = {
-            "network": {
-                "name": PHYSICAL_NETWORK_NAME,
-                "provider:physical_network": PHYSICAL_NETWORK_LABEL,
-                "provider:network_type": "flat",
-                "shared": True,
-                "router:external": True
-            }
-        }
-        response = neutronClient.create_network(network)
-        print "Created %s network" % PHYSICAL_NETWORK_NAME
-
-        #Retriving the UUID of the external-net network
-        external_net_id = response['network']['id']
-
-        # The JSON object representation of the external subnet
-        external_subnet = {
-            "subnet": {
-                "name": PHYSICAL_SUBNET_NAME,
-                "network_id": external_net_id,
-                "ip_version": 4,
-                "gateway_ip": "192.168.100.1",
-                "cidr": "192.168.100.0/24",
-                "allocation_pools": [{"start": FLOATING_IP_START, "end": FLOATING_IP_END}]
-            }
-        }
-        neutronClient.create_subnet(external_subnet)
-        print "Created %s subnet" % PHYSICAL_SUBNET_NAME
+        #Creating the default physical provider network
+        external_net_id = _create_external_network()
 
         #Creating the default tenant network and subnet.
         tenant_subnet_id = _create_tenant_network()
@@ -84,6 +60,7 @@ def create(args):
 
 def delete(args):
     global neutronClient
+
     # Getting IDs of all the resources and mapping them out, since
     # the neutron api only accepts ids and not resource names.
     networks = neutronClient.list_networks()
@@ -106,11 +83,10 @@ def delete(args):
     # If -a options is set, remove the default networking components
     if args.all:
         _delete_router(router_map, subnet_map)
-
-        # Deleting default networks (eventually check if they exists)
         _delete_network(network_map, PHYSICAL_NETWORK_NAME)
         _delete_network(network_map, TENANT_NETWORK_NAME)
-
+    else:
+        print "This function is not valid, try running the delete subcommand with -h for info."
 
 
 def debug(args):
@@ -121,7 +97,6 @@ def debug(args):
         _restart_neutron_services(args.inventory)
 
 
-
 # List all the networks. Mainly for development testing purposes.
 def list(args):
     global neutronClient
@@ -130,7 +105,52 @@ def list(args):
     for nets in networks['networks']:
         print nets['name']
 
+
 #Private helper functions
+# This function creates the physical provider network with it's corresponding subnet
+# using the constants set above.
+def _create_external_network(name=PHYSICAL_NETWORK_NAME,
+                             label=PHYSICAL_NETWORK_LABEL,
+                             subnet_name=PHYSICAL_SUBNET_NAME,
+                             gateway_ip=NEUTRON_ROUTER_GATEWAY_IP,
+                             subnet_cidr=EXTERNAL_SUBNET_CIDR,
+                             floating_ip_start=FLOATING_IP_START,
+                             floating_ip_end=FLOATING_IP_END):
+    global neutronClient
+
+    # The JSON object representation of the external network
+    network = {
+        "network": {
+            "name": name,
+            "provider:physical_network": label,
+            "provider:network_type": "flat",
+            "shared": True,
+            "router:external": True
+        }
+    }
+    response = neutronClient.create_network(network)
+    print "Created %s network" % name
+
+    #Retriving the UUID of the external-net network
+    external_net_id = response['network']['id']
+
+     # The JSON object representation of the external subnet
+    external_subnet = {
+        "subnet": {
+            "name": subnet_name,
+            "network_id": external_net_id,
+            "ip_version": 4,
+            "gateway_ip": gateway_ip,
+            "cidr": subnet_cidr,
+            "allocation_pools": [{"start": floating_ip_start, "end": floating_ip_end}]
+        }
+    }
+
+    neutronClient.create_subnet(external_subnet)
+    print "Created %s subnet" % subnet_name
+    return external_net_id
+
+
 # This function creates a vxlan tenant network with it's corresponding subnet
 def _create_tenant_network(subnet_cidr="10.10.10.0/24", net_name=TENANT_NETWORK_NAME, subnet_name=TENANT_SUBNET_NAME):
     global neutronClient
@@ -289,11 +309,11 @@ if __name__ == '__main__':
 
     subparsers = parser.add_subparsers(title='subcommands')
 
-    parser_create = subparsers.add_parser('create', help='Create the neutron networks in our SAT6 lab')
-    parser_create.add_argument('-a','--all', action='store_true', required=False, help="Create all the networking components needed to get a functional flat neutron network environment in our SAT6 lab. This creates the physical provider network, routers, and a test tenant network using the vxlan tunneling protocol.")
+    parser_create = subparsers.add_parser('create', help='Create the neutron networks according to how the constants are configured')
+    parser_create.add_argument('-a','--all', action='store_true', required=False, help="Create all the networking components needed to get a functional flat neutron network environment (Assuming the physical plumbing is correctly in place). This creates the physical provider network, routers, and a test tenant network using the vxlan tunneling protocol.")
     parser_create.set_defaults(func=create)
 
-    parser_delete = subparsers.add_parser('delete', help='Delete the neutron networks in our SAT6 lab')
+    parser_delete = subparsers.add_parser('delete', help='Delete the neutron networks created using the constants defined in the script')
     parser_delete.add_argument('-a','--all', action='store_true', required=False, help="Delete everything. This deletes all neutron ports, any instances associated with these ports, floating IP ports, all neutron routers, and all networks. Use at your own risk.")
     parser_delete.set_defaults(func=delete)
 
