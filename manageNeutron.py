@@ -96,6 +96,9 @@ def debug(args):
     if args.restart_services:
         _restart_neutron_services(args.inventory)
 
+    if args.test_ports_active:
+        _test_ports_active()
+
 
 # List all the networks. Mainly for development testing purposes.
 def list(args):
@@ -301,6 +304,18 @@ def _restart_neutron_services(inventory_file):
         print proc.stdout[0].rstrip()
 
 
+#This function tests to see if all neutron
+#ports are in the ACTIVE status
+def _test_ports_active():
+    global neutronClient
+    #List the ports
+    neutron_ports = neutronClient.list_ports()
+    print "-------------------"
+    for port in neutron_ports['ports']:
+        print port['fixed_ips'][0]['ip_address']
+        print port['device_owner']
+        print port['status']
+        print "-------------------"
 
 
 if __name__ == '__main__':
@@ -366,6 +381,11 @@ if __name__ == '__main__':
         action='store_true',
         required=False,
         help="Restart all the services across the environment, even the ones in the container. SSH is used to restart services inside a container.")
+    parser_debug.add_argument(
+        '--test_ports_active',
+        action='store_true',
+        required=False,
+        help="Sometimes, for whatever reason, ports can stay stuck at the BUILD status. This will check all neutron ports are in the ACTIVE status.")
     parser_debug.set_defaults(func=debug)
 
     # Subcommand for listing the networks, mainly for dev testing purposes.
