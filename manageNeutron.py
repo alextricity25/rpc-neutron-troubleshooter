@@ -304,17 +304,39 @@ def _restart_neutron_services(inventory_file):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Manage your neutron networks in bulk. First, source openrc.")
-    parser.add_argument("--source_file", type=str, required=True, help="Your environments source file")
+
+    parser = argparse.ArgumentParser(
+        description="Manage your neutron networks in bulk. First, source openrc.")
+
+    parser.add_argument(
+        "--source_file",
+        type=str,
+        required=True,
+        help="Your environments source file")
 
     subparsers = parser.add_subparsers(title='subcommands')
 
-    parser_create = subparsers.add_parser('create', help='Create the neutron networks according to how the constants are configured')
-    parser_create.add_argument('-a','--all', action='store_true', required=False, help="Create all the networking components needed to get a functional flat neutron network environment (Assuming the physical plumbing is correctly in place). This creates the physical provider network, routers, and a test tenant network using the vxlan tunneling protocol.")
+    parser_create = subparsers.add_parser(
+        'create',
+        help='Create the neutron networks according to how the constants are configured')
+
+    parser_create.add_argument(
+        '-a',
+        '--all',
+        action='store_true',
+        required=False,
+        help="Create all the networking components needed to get a functional flat neutron network environment (Assuming the physical plumbing is correctly in place). This creates the physical provider network, routers, and a test tenant network using the vxlan tunneling protocol.")
     parser_create.set_defaults(func=create)
 
-    parser_delete = subparsers.add_parser('delete', help='Delete the neutron networks created using the constants defined in the script')
-    parser_delete.add_argument('-a','--all', action='store_true', required=False, help="Delete everything. This deletes all neutron ports, any instances associated with these ports, floating IP ports, all neutron routers, and all networks. Use at your own risk.")
+    parser_delete = subparsers.add_parser(
+        'delete',
+        help='Delete the neutron networks created using the constants defined in the script')
+    parser_delete.add_argument(
+        '-a',
+        '--all',
+        action='store_true',
+        required=False,
+        help="Delete everything. This deletes all neutron ports, any instances associated with these ports, floating IP ports, all neutron routers, and all networks. Use at your own risk.")
     parser_delete.set_defaults(func=delete)
 
     #Subcommand for debugging neutron in an RPC environment, this options
@@ -329,13 +351,27 @@ if __name__ == '__main__':
     # - Check neutron logs for any recent ERROR messages.
     # - more to come!!
 
-    parser_debug = subparsers.add_parser('debug', help="This can be used to help debug neutron in an RPC environment, see help (-h) for more information. This command can only be ran from the deployment host")
-    parser_debug.add_argument('-i','--inventory', type=str, required=True, help="The path of the environment's rpc_inventory.json file", default='/etc/rpc_deploy/rpc_inventory.json')
-    parser_debug.add_argument('-r','--restart_services', action='store_true', required=False, help="Restart all the services across the environment, even the ones in the container. SSH is used to restart services inside a container.")
+    parser_debug = subparsers.add_parser(
+        'debug',
+        help="This can be used to help debug neutron in an RPC environment, see help (-h) for more information. This command can only be ran from the deployment host")
+    parser_debug.add_argument(
+        '-i',
+        '--inventory',
+        type=str,
+        required=True,
+        help="The path of the environment's rpc_inventory.json file", default='/etc/rpc_deploy/rpc_inventory.json')
+    parser_debug.add_argument(
+        '-r',
+        '--restart_services',
+        action='store_true',
+        required=False,
+        help="Restart all the services across the environment, even the ones in the container. SSH is used to restart services inside a container.")
     parser_debug.set_defaults(func=debug)
 
     # Subcommand for listing the networks, mainly for dev testing purposes.
-    parser_list = subparsers.add_parser('list', help='List networks in JSON format')
+    parser_list = subparsers.add_parser(
+        'list',
+        help='List networks in JSON format')
     parser_list.set_defaults(func=list)
 
     args = parser.parse_args()
