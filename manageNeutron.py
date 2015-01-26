@@ -26,6 +26,8 @@ NEUTRON_ROUTER_GATEWAY_IP = "192.168.100.1"
 FLOATING_IP_START = "192.168.100.71"
 FLOATING_IP_END = "192.168.100.90"
 
+NUM_OF_THREADS = 4
+
 #Load the file containing openstack credentials
 #NOTE: instead of sourcing it, should I just read the values?
 def load_source(source_file):
@@ -98,6 +100,12 @@ def debug(args):
 
     if args.test_ports_active:
         _test_ports_active()
+
+    if args.list_inventory:
+        _print_inventory(args.inventory)
+
+    if args.verify_tunnel_ips:
+        _verify_tunnel_ips(args.inventory)
 
 
 # List all the networks. Mainly for development testing purposes.
@@ -242,6 +250,13 @@ def _delete_network(network_map, network_name):
     neutronClient.delete_network(network_map[network_name])
     print "Deleted %s network" % network_name
 
+#Function to print out inventory in JSON format
+def _print_inventory(inventory_file):
+    inventory = []
+    with open(inventory_file) as f:
+        inventory = json.load(f)
+    pprint.pprint(inventory)
+
 def _restart_neutron_services(inventory_file):
 
     #Load inventory file into JSON object
@@ -310,6 +325,7 @@ def _test_ports_active():
     global neutronClient
     #List the ports
     neutron_ports = neutronClient.list_ports()
+    pprint.pprint(neutron_ports)
     print "-------------------"
     for port in neutron_ports['ports']:
         print port['fixed_ips'][0]['ip_address']
@@ -317,6 +333,20 @@ def _test_ports_active():
         print port['status']
         print "-------------------"
 
+#THis function verifies ping response to all of the
+#tunnel ips listed in the rpc_inventory.json file.
+
+def _verify_tunnel_ips(inventory_file):
+    inventory = []
+    with open(inventory_file) as f:
+        inventory = json.load(f)
+
+    hosts_meta = inventory['_meta']['hostvars']
+
+    for host, meta in hosts_meta.iteritems():
+        if 'tunnel_address' in meta.keys():
+            print host
+            print meta['tunnel_address']
 
 if __name__ == '__main__':
 
@@ -381,11 +411,25 @@ if __name__ == '__main__':
         action='store_true',
         required=False,
         help="Restart all the services across the environment, even the ones in the container. SSH is used to restart services inside a container.")
+
     parser_debug.add_argument(
         '--test_ports_active',
         action='store_true',
         required=False,
         help="Sometimes, for whatever reason, ports can stay stuck at the BUILD status. This will check all neutron ports are in the ACTIVE status.")
+
+    parser_debug.add_argument(
+        '--list_inventory',
+        action='store_true',
+        required=False,
+        help="Print out RPC inventory in JSON format. For dev. purposes.")
+
+    parser_debug.add_argument(
+        '--verify_tunnel_ips',
+        action='store_true',
+        required=False,
+        help="This pulls the tunnel addresses from the rpc inventory file, then pings them. Sometimes vxlan proproties may be misconfigured or IPs may not match accross the environment. Currently only prints them. Needs work")
+
     parser_debug.set_defaults(func=debug)
 
     # Subcommand for listing the networks, mainly for dev testing purposes.
